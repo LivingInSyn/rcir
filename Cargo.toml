@@ -1,0 +1,6 @@
+[package]
+name = "rcir"
+version = "0.1.0"
+authors = ["Jeremy Mill <jeremy.mill@otis.com>"]
+
+[dependencies]
