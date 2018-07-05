@@ -1,5 +1,7 @@
 use std::collections::VecDeque;
 use std::collections::HashMap;
+use std::error;
+use std::fmt;
 
 #[derive(Debug, PartialEq)]
 pub enum ElectionResult<T: std::cmp::Eq + std::hash::Hash + std::marker::Copy> {
@@ -7,8 +9,50 @@ pub enum ElectionResult<T: std::cmp::Eq + std::hash::Hash + std::marker::Copy> {
     Tie(Vec<T>),
 }
 
+type Result<T> = std::result::Result<T, ElectionError>;
+#[derive(Debug, Clone, PartialEq)]
+pub enum ElectionError {
+    EmptyVoteCollection,
+    AllQueuesEmpty,
+}
+impl fmt::Display for ElectionError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Error with election input")
+    }
+}
+impl error::Error for ElectionError {
+    fn description(&self) -> &str {
+        if self == &ElectionError::EmptyVoteCollection {
+            "vote_collection is empty"
+        } else {
+            "all queues empty"
+        }
+        
+    }
+
+    fn cause(&self) -> Option<&error::Error> {
+        // Generic error, underlying cause isn't tracked.
+        None
+    }
+}
+
+
 /// Runs an election returning a winner, or a tie. It expects a vector of VecDeque's which are a queue of peoples priorities
-pub fn run_election<T: std::cmp::Eq + std::hash::Hash + std::marker::Copy>(mut vote_collection: Vec<VecDeque<T>>) -> ElectionResult<T> {
+pub fn run_election<T: std::cmp::Eq + std::hash::Hash + std::marker::Copy>(mut vote_collection: Vec<VecDeque<T>>) -> Result<ElectionResult<T>> {
+    //check input
+    //check the holder
+    if vote_collection.len() == 0 {
+        return Err(ElectionError::EmptyVoteCollection);
+    }
+    let mut all_empty = true;
+    for vote in &vote_collection {
+        if vote.len() != 0 {
+            all_empty = false;
+        }
+    }
+    if all_empty {
+        return Err(ElectionError::AllQueuesEmpty);
+    }
     //run passes    
     loop {
         //vector to hold this rounds votes
@@ -50,7 +94,7 @@ pub fn run_election<T: std::cmp::Eq + std::hash::Hash + std::marker::Copy>(mut v
         }
         //if there's a winner, return
         if let Some(winner) = winner {
-            return ElectionResult::Winner(*winner);
+            return Ok(ElectionResult::Winner(*winner));
         }
         //detect if there is a tie. There is a tie if the to_remove_vec has the same
         //length as the votecount hashmap
@@ -59,7 +103,7 @@ pub fn run_election<T: std::cmp::Eq + std::hash::Hash + std::marker::Copy>(mut v
             for tienetry in to_remove_vec {
                 tievec.push(*tienetry);
             }
-            return ElectionResult::Tie(tievec);
+            return Ok(ElectionResult::Tie(tievec));
         }        
         //otherwise clear the loser(s) from the queue
         for removal in to_remove_vec {
@@ -111,8 +155,13 @@ mod tests {
 
         let vec = vec![voter_a, voter_b, voter_c, voter_d, voter_e];
         let winner = run_election(vec);
-        println!("winner is: {:?}", winner);
-        assert_eq!(ElectionResult::Winner("sue"), winner);
+        if let Ok(winner) = winner {
+            assert_eq!(ElectionResult::Winner("sue"), winner);
+        } else {
+            assert!(false);
+        }
+        //println!("winner is: {:?}", winner);
+        
 
     }
 
@@ -127,7 +176,29 @@ mod tests {
         let vec = vec![voter_a, voter_b];
         let winner = run_election(vec);
         let _tievec: Vec<&str> = vec!["bill", "sue"];
-        if let ElectionResult::Tie(tie_res) = winner {
+        if let Ok(ElectionResult::Tie(tie_res)) = winner {
+            assert!(tie_res.contains(&"bill"));
+            assert!(tie_res.contains(&"sue"));
+        }
+        else {
+            assert!(false);
+        }
+    }
+
+    #[test]
+    fn tie2() {
+        let mut voter_a = VecDeque::new();
+        voter_a.push_front("sue");
+        voter_a.push_front("bill");
+
+        let mut voter_b = VecDeque::new();
+        voter_b.push_front("bill");
+        voter_b.push_front("sue");
+
+        let vec = vec![voter_a, voter_b];
+        let winner = run_election(vec);
+        let _tievec: Vec<&str> = vec!["bill", "sue"];
+        if let Ok(ElectionResult::Tie(tie_res)) = winner {
             assert!(tie_res.contains(&"bill"));
             assert!(tie_res.contains(&"sue"));
         }
