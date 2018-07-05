@@ -7,7 +7,8 @@ pub enum ElectionResult<T: std::cmp::Eq + std::hash::Hash + std::marker::Copy> {
     Tie(Vec<T>),
 }
 
-pub extern fn run_election<T: std::cmp::Eq + std::hash::Hash + std::marker::Copy>(mut vote_collection: Vec<VecDeque<T>>) -> ElectionResult<T> {
+/// Runs an election returning a winner, or a tie. It expects a vector of VecDeque's which are a queue of peoples priorities
+pub fn run_election<T: std::cmp::Eq + std::hash::Hash + std::marker::Copy>(mut vote_collection: Vec<VecDeque<T>>) -> ElectionResult<T> {
     //run passes    
     loop {
         //vector to hold this rounds votes
