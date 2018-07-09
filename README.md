@@ -1,5 +1,5 @@
 # RCIR
-RCIR is a ranked choice instant runoff library written in rust. It's a work in progress.
+RCIR is a ranked choice instant runoff library written in rust. It's a work in progress. The library is in the rcir directory, and a sample binary is in the rcir_csv directory.
 
 In the result of a tie for last place and no winner, all the last place candidates are removed
 
