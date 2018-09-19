@@ -3,6 +3,8 @@ RCIR is a ranked choice instant runoff library written in rust. It's a work in p
 
 In the result of a tie for last place and no winner, all the last place candidates are removed, so it is not a 'Spoiler Proof' method [Spoiler Effect + Resistance to tactical voting](https://en.wikipedia.org/wiki/Instant-runoff_voting#Resistance_to_tactical_voting) 
 
+RCIR will not mutate the input and aims to have as few restrictions on data types as possible
+
 ## Example
 | Voter A | Voter B | Voter C | Voter D | Voter E |
 |---------|---------|---------|---------|---------|
