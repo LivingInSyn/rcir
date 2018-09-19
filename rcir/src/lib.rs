@@ -1,19 +1,92 @@
-use std::collections::VecDeque;
-use std::collections::HashMap;
 use std::error;
 use std::fmt;
+use std::collections::HashMap;
+
+pub fn run_election<'a, Iter1, SubIter: std::iter::IntoIterator + 'a, Vobj: 'a + std::cmp::Eq + std::hash::Hash>(voters: &'a Iter1) -> Result<ElectionResult<Vobj>>
+    where &'a Iter1: IntoIterator<Item = &'a SubIter>, &'a SubIter: IntoIterator<Item = &'a Vobj>
+{
+    //contains the list of eliminated candidates
+    let mut eliminated: HashMap<&Vobj, bool> = HashMap::new();
+    loop {
+        // setup the vote data structure
+        let mut round_votes: HashMap<&Vobj, u32> = HashMap::new();
+        // number of voters
+        let mut num_voters: u32 = 0;
+        // count the votes
+        for voter in voters {
+            let (num_voters_checked, overflow) = num_voters.overflowing_add(1);
+            if overflow {
+                return Err(ElectionError::Overflow);
+            }
+            num_voters = num_voters_checked;
+            for vote in voter {
+                if !eliminated.contains_key(vote){
+                    let mut vc = round_votes.entry(vote).or_insert(0);
+                    *vc = *vc + 1;
+                    break;
+                }
+            }
+        }
+        // ensure that we had voters
+        if num_voters == 0 {
+            return Err(ElectionError::EmptyVoteCollection);
+        }
+        // essure that we had votes
+        if round_votes.is_empty() {
+            return Err(ElectionError::VotersNoVotes)
+        }
+        // find the fifty percentile and see if we have a winner by majority
+        // note: we need to make sure we don't overflow num_voters when getting
+        // the fifty percentile
+        let (fifty_numerator, overflow) = num_voters.overflowing_add(1);
+        if overflow {
+            return Err(ElectionError::Overflow);
+        }
+        let fifty_percent = (fifty_numerator) / 2;
+        let mut winners = Vec::new();
+        for (v, votecount) in round_votes.iter() {
+            if *votecount >= fifty_percent {
+                winners.push(*v);
+            }
+        }
+        match winners.len() {
+            0 => {}
+            1 => {return Ok(ElectionResult::Winner(winners[0]));}
+            _ => { return Ok(ElectionResult::Tie(winners)); }
+        }
+        // if we don't have a majority we need to eliminate the 
+        // minimum vote getters
+        let mut add_elim = Vec::new();
+        let mut elim_count = u32::max_value();
+        for (v, votecount) in round_votes.iter() {
+            if *votecount < elim_count {
+                add_elim.clear();
+                add_elim.push(v);
+                elim_count = *votecount;
+            } else if *votecount == elim_count {
+                add_elim.push(v);
+            }
+        }
+        // add who to eliminate to the eliminated hashmap
+        for elim in add_elim {
+            eliminated.entry(elim).or_insert(true);
+        }
+    }
+    //return Err(ElectionError::EmptyVoteCollection);
+}
 
 #[derive(Debug, PartialEq)]
-pub enum ElectionResult<T: std::cmp::Eq + std::hash::Hash + std::marker::Copy> {
-    Winner(T),
-    Tie(Vec<T>),
+pub enum ElectionResult<'a, T: 'a> {
+    Winner(&'a T),
+    Tie(Vec<&'a T>),
 }
 
 type Result<T> = std::result::Result<T, ElectionError>;
 #[derive(Debug, Clone, PartialEq)]
 pub enum ElectionError {
     EmptyVoteCollection,
-    AllQueuesEmpty,
+    VotersNoVotes,
+    Overflow,
 }
 impl fmt::Display for ElectionError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -22,103 +95,26 @@ impl fmt::Display for ElectionError {
 }
 impl error::Error for ElectionError {
     fn description(&self) -> &str {
-        if self == &ElectionError::EmptyVoteCollection {
-            "vote_collection is empty"
-        } else {
-            "all queues empty"
-        }
-        
+        match &self {
+            ElectionError::EmptyVoteCollection => {
+                "Vote Collection is empty"
+            },
+            ElectionError::VotersNoVotes => {
+                "There were voters, but no votes"
+            }
+            ElectionError::Overflow => {
+                "An integer overflow occured"
+            }
+            // _ => {
+            //     "Other Error"
+            // }
+        }        
     }
 
     fn cause(&self) -> Option<&error::Error> {
         // Generic error, underlying cause isn't tracked.
         None
     }
-}
-
-
-/// Runs an election returning a winner, or a tie. It expects a vector of VecDeque's which are a queue of peoples priorities
-pub fn run_election<T: std::cmp::Eq + std::hash::Hash + std::marker::Copy>(mut vote_collection: Vec<VecDeque<T>>) -> Result<ElectionResult<T>> {
-    //check input
-    //check the holder
-    if vote_collection.len() == 0 {
-        return Err(ElectionError::EmptyVoteCollection);
-    }
-    let mut all_empty = true;
-    for vote in &vote_collection {
-        if vote.len() != 0 {
-            all_empty = false;
-        }
-    }
-    if all_empty {
-        return Err(ElectionError::AllQueuesEmpty);
-    }
-    //run passes    
-    loop {
-        //vector to hold this rounds votes
-        let mut roundvotes: Vec<T> = Vec::new();
-        for mut vote in vote_collection.clone() {
-            if let Some(vote) = vote.front() {
-                roundvotes.push(*vote);
-            }
-        }
-        //count the votes
-        let mut votecount: HashMap<T,u64> = HashMap::new();
-        let mut totalvote_counter: u64 = 0;
-        for vote in roundvotes {
-            let vc = votecount.entry(vote).or_insert(0);
-            *vc += 1;
-            totalvote_counter += 1;
-        }
-        //see if there's a winner
-        let fifty_percent = totalvote_counter / 2;
-        //let mut to_remove: Option<&T> = None;
-        let mut to_remove_vec: Vec<&T> = Vec::new();
-        let mut winner: Option<&T> = None;
-        let mut to_remove_count = u64::max_value();
-        for (key, votes) in &votecount {
-            if *votes > fifty_percent {
-                winner = Some(key);
-                break;
-            }
-            //if this is lower than the pervious, set the low vote count
-            if *votes < to_remove_count {
-                to_remove_count = *votes;
-                to_remove_vec.clear();
-                to_remove_vec.push(key);
-            }
-            else if *votes == to_remove_count {
-                to_remove_vec.push(key);
-            }
-
-        }
-        //if there's a winner, return
-        if let Some(winner) = winner {
-            return Ok(ElectionResult::Winner(*winner));
-        }
-        //detect if there is a tie. There is a tie if the to_remove_vec has the same
-        //length as the votecount hashmap
-        if to_remove_vec.len() == votecount.len() {
-            let mut tievec = Vec::new();
-            for tienetry in to_remove_vec {
-                tievec.push(*tienetry);
-            }
-            return Ok(ElectionResult::Tie(tievec));
-        }        
-        //otherwise clear the loser(s) from the queue
-        for removal in to_remove_vec {
-            for vote in vote_collection.iter_mut() {
-                //pop the front element
-                if let Some(frontvote) = vote.pop_front() {
-                    //if it's not the to_remove value, put it back
-                    if frontvote != *removal {
-                        vote.push_front(frontvote);
-                    }
-                }
-            }
-        }
-    }
-    
 }
 
 #[cfg(test)]
@@ -154,15 +150,14 @@ mod tests {
         voter_e.push_front("sue");
 
         let vec = vec![voter_a, voter_b, voter_c, voter_d, voter_e];
-        let winner = run_election(vec);
+        let winner = run_election(&vec);
+        //println!("{:?}", winner);
         if let Ok(winner) = winner {
-            assert_eq!(ElectionResult::Winner("sue"), winner);
+            assert_eq!(ElectionResult::Winner(&"sue"), winner);
         } else {
             assert!(false);
         }
         //println!("winner is: {:?}", winner);
-        
-
     }
 
     #[test]
@@ -174,11 +169,10 @@ mod tests {
         voter_b.push_front("bill");
 
         let vec = vec![voter_a, voter_b];
-        let winner = run_election(vec);
-        let _tievec: Vec<&str> = vec!["bill", "sue"];
+        let winner = run_election(&vec);
         if let Ok(ElectionResult::Tie(tie_res)) = winner {
-            assert!(tie_res.contains(&"bill"));
-            assert!(tie_res.contains(&"sue"));
+            assert!(tie_res.contains(&&"bill"));
+            assert!(tie_res.contains(&&"sue"));
         }
         else {
             assert!(false);
@@ -196,13 +190,25 @@ mod tests {
         voter_b.push_front("sue");
 
         let vec = vec![voter_a, voter_b];
-        let winner = run_election(vec);
-        let _tievec: Vec<&str> = vec!["bill", "sue"];
+        let winner = run_election(&vec);
         if let Ok(ElectionResult::Tie(tie_res)) = winner {
-            assert!(tie_res.contains(&"bill"));
-            assert!(tie_res.contains(&"sue"));
+            assert!(tie_res.contains(&&"bill"));
+            assert!(tie_res.contains(&&"sue"));
         }
         else {
+            assert!(false);
+        }
+    }
+
+    #[test]
+    fn voters_no_votes() {
+        let voter_a: Vec<&str> = Vec::new();
+        let voter_b: Vec<&str> = Vec::new();
+        let voters = vec![voter_a, voter_b];
+        let winner = run_election(&voters);
+        if let Err(error_res) = winner {
+            assert_eq!(error_res, ElectionError::VotersNoVotes);
+        } else {
             assert!(false);
         }
     }
