@@ -1,0 +1,9 @@
+[package]
+name = "rcir_csv"
+version = "0.1.0"
+authors = ["Jeremy Mill <jeremy.mill@otis.com>"]
+
+[dependencies]
+csv = "1.0.0"
+clap = "2.31.2"
+rcir = { path = "../rcir"}
