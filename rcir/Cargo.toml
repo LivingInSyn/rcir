@@ -1,6 +1,9 @@
 [package]
 name = "rcir"
 version = "0.2.0"
-authors = ["Jeremy Mill <jeremy.mill@otis.com>"]
+authors = ["Jeremy Mill <jeremymill@gmail.com>"]
+description = "A library for running ranked choice instant runoff elections. Aims to have few datatype requirements and to not mutate input"
+license = "MIT"
+repository = "https://github.com/LivingInSyn/rcir/tree/master/rcir"
 
 [dependencies]
