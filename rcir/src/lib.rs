@@ -1,12 +1,12 @@
 use std::error;
 use std::fmt;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub fn run_election<'a, Iter1, SubIter: std::iter::IntoIterator + 'a, Vobj: 'a + std::cmp::Eq + std::hash::Hash>(voters: &'a Iter1) -> Result<ElectionResult<Vobj>>
     where &'a Iter1: IntoIterator<Item = &'a SubIter>, &'a SubIter: IntoIterator<Item = &'a Vobj>
 {
     //contains the list of eliminated candidates
-    let mut eliminated: HashMap<&Vobj, bool> = HashMap::new();
+    let mut eliminated: HashSet<&Vobj> = HashSet::new();
     loop {
         // setup the vote data structure
         let mut round_votes: HashMap<&Vobj, u32> = HashMap::new();
@@ -20,7 +20,7 @@ pub fn run_election<'a, Iter1, SubIter: std::iter::IntoIterator + 'a, Vobj: 'a +
             }
             num_voters = num_voters_checked;
             for vote in voter {
-                if !eliminated.contains_key(vote){
+                if !eliminated.contains(vote){
                     let mut vc = round_votes.entry(vote).or_insert(0);
                     *vc = *vc + 1;
                     break;
@@ -69,7 +69,7 @@ pub fn run_election<'a, Iter1, SubIter: std::iter::IntoIterator + 'a, Vobj: 'a +
         }
         // add who to eliminate to the eliminated hashmap
         for elim in add_elim {
-            eliminated.entry(elim).or_insert(true);
+            eliminated.insert(elim);
         }
     }
     //return Err(ElectionError::EmptyVoteCollection);
