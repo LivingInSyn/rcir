@@ -43,7 +43,7 @@ pub fn run_election<'a, Iter1, SubIter: std::iter::IntoIterator + 'a, Vobj: 'a +
         }
         // essure that we had votes
         if round_votes.is_empty() {
-            return Err(ElectionError::VotersNoVotes)
+            return Err(ElectionError::NoMajorityWinner)
         }
         // find the fifty percentile and see if we have a winner by majority
         // note: we need to make sure we don't overflow num_voters when getting
@@ -101,7 +101,7 @@ type Result<T> = std::result::Result<T, ElectionError>;
 #[derive(Debug, Clone, PartialEq)]
 pub enum ElectionError {
     EmptyVoteCollection,
-    VotersNoVotes,
+    NoMajorityWinner,
     Overflow,
 }
 impl fmt::Display for ElectionError {
@@ -115,7 +115,7 @@ impl error::Error for ElectionError {
             ElectionError::EmptyVoteCollection => {
                 "Vote Collection is empty"
             },
-            ElectionError::VotersNoVotes => {
+            ElectionError::NoMajorityWinner => {
                 "There were voters, but no votes"
             }
             ElectionError::Overflow => {
@@ -247,13 +247,13 @@ mod tests {
         let voters = vec![voter_a, voter_b];
         let winner = run_election(&voters, MajorityMode::CompleteMajority);
         if let Err(error_res) = winner {
-            assert_eq!(error_res, ElectionError::VotersNoVotes);
+            assert_eq!(error_res, ElectionError::NoMajorityWinner);
         } else {
             assert!(false);
         }
         let winner = run_election(&voters, MajorityMode::RemainingMajority);
         if let Err(error_res) = winner {
-            assert_eq!(error_res, ElectionError::VotersNoVotes);
+            assert_eq!(error_res, ElectionError::NoMajorityWinner);
         } else {
             assert!(false);
         }
@@ -285,7 +285,7 @@ mod tests {
         //run with complete majority mode
         let winner = run_election(&vec, MajorityMode::CompleteMajority);
         if let Err(error_res) = winner {
-            assert_eq!(error_res, ElectionError::VotersNoVotes);
+            assert_eq!(error_res, ElectionError::NoMajorityWinner);
         } else {
             assert!(false);
         }
