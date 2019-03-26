@@ -1,6 +1,6 @@
 [package]
 name = "rcir"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Jeremy Mill <jeremymill@gmail.com>"]
 description = "A library for running ranked choice instant runoff elections. Aims to have few datatype requirements and to not mutate input"
 license = "MIT"

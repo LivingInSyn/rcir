@@ -34,7 +34,7 @@ fn main() {
         }        
         voters.push(votes);
     }
-    let winner = run_election(&voters);
+    let winner = run_election(&voters, MajorityMode::CompleteMajority);
     match winner {
         Ok(rcir::ElectionResult::Winner(w)) => {
             println!("The winner was: {}", w);
